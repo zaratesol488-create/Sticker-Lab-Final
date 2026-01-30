@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>Untitled</title>
+    <!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    :root { --accent: #f472b6; --bg: #0f172a; --panel: #1e293b; --cyan: #22d3ee; }
+    body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    
+    header { padding: 10px; text-align: center; background: rgba(0,0,0,0.2); }
+    main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 10px; }
+    
+    .canvas-box { position: relative; width: 100%; max-width: 350px; aspect-ratio: 1/1; background: white; border-radius: 20px; box-shadow: 0 0 20px rgba(34, 211, 238, 0.3); touch-action: none; }
+    #stickerImg, #mainCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 20px; }
+    
+    .controls { background: var(--panel); padding: 15px; border-top-left-radius: 30px; border-top-right-radius: 30px; display: flex; flex-direction: column; gap: 8px; max-height: 55%; overflow-y: auto; }
+    input, select { background: var(--bg); border: 1px solid #334155; color: white; padding: 10px; border-radius: 10px; width: 100%; font-size: 16px; }
+    
+    /* Panel de edición que se activa al tocar algo */
+    #editZone { background: rgba(34, 211, 238, 0.1); padding: 10px; border-radius: 15px; display: none; border: 1px solid var(--cyan); }
+    
+    .btn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(50px, 1fr)); gap: 5px; }
+    button { border: none; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; }
+    .btn-gen { background: var(--accent); color: white; width: 100%; }
+    .btn-acc { background: rgba(255,255,255,0.1); color: white; font-size: 20px; }
+    .btn-save { background: #10b981; color: white; margin-top: 5px; padding: 12px; }
+  </style>
+</head>
+<body>
+  <header><h2 style="margin:0; font-size:1.2rem; color:var(--accent)">STICKER APP PRO</h2></header>
+  
+  <main>
+    <div class="canvas-box" id="cBox">
+      <img id="stickerImg" src="https://via.placeholder.com/512/white/ccc?text=Crea+un+Sticker" crossorigin="anonymous">
+      <canvas id="mainCanvas"></canvas>
+    </div>
+  </main>
+
+  <section class="controls">
+    <input type="text" id="prompt" placeholder="¿Qué quieres crear?">
+    <button class="btn-gen" onclick="crearSticker()">🎨 GENERAR</button>
+
+    <div id="editZone">
+      <label style="font-size: 11px; color: var(--cyan); font-weight: bold;">TAMAÑO</label>
+      <input type="range" id="sizeRange" min="20" max="300" value="80" oninput="ajustar()">
+      
+      <div id="fontGroup" style="display:none; margin-top:5px">
+        <label style="font-size: 11px; color: var(--cyan); font-weight: bold;">LETRA</label>
+        <select id="fontSelect" onchange="ajustar()">
+          <option value="Arial">Arial (Normal)</option>
+          <option value="'Comic Sans MS', cursive">Comic (Divertida)</option>
+          <option value="cursive">Cursive (Elegante)</option>
+          <option value="Impact">Impact (Fuerte)</option>
+        </select>
+      </div>
+    </div>
+
+    <input type="text" id="bubbleText" placeholder="Pensamiento..." oninput="actualizarBurbuja()">
+    
+    <div class="btn-grid">
+      <button class="btn-acc" onclick="addObj('💭')">💭</button>
+      <button class="btn-acc" onclick="addObj('👑')">👑</button>
+      <button class="btn-acc" onclick="addObj('🕶️')">🕶️</button>
+      <button class="btn-acc" onclick="addObj('🎀')">🎀</button>
+      <button class="btn-acc" onclick="addObj('✨')">✨</button>
+    </div>
+    
+    <button class="btn-save" onclick="guardar()">💾 GUARDAR STICKER</button>
+    <button style="background:#475569; color:white; font-size:10px" onclick="limpiar()">🧹 BORRAR TODO</button>
+  </section>
+
+  <script>
+    const canvas = document.getElementById('mainCanvas'), ctx = canvas.getContext('2d'), img = document.getElementById('stickerImg');
+    let objetos = [], seleccionado = null, offset = {x: 0, y: 0};
+
+    function resize() { const b = document.getElementById('cBox'); canvas.width = b.clientWidth; canvas.height = b.clientHeight; dibujarTodo(); }
+    window.onresize = resize; window.onload = resize;
+
+    async function crearSticker() {
+      const p = document.getElementById('prompt').value; if (!p) return;
+      img.src = `https://image.pollinations.ai/prompt/${encodeURIComponent(p + " sticker style white background")}?width=512&height=512&nologo=true&seed=${Math.random()}`;
+    }
+
+    function addObj(e) { 
+      const n = { t: e, x: canvas.width/2, y: canvas.height/2, s: canvas.width/5, texto: "", f: "Arial" };
+      objetos.push(n); 
+      activarEditor(n);
+      dibujarTodo(); 
+    }
+
+    function activarEditor(o) {
+      seleccionado = o;
+      document.getElementById('editZone').style.display = "block";
+      document.getElementById('sizeRange').value = o.s;
+      document.getElementById('fontGroup').style.display = (o.t === '💭') ? "block" : "none";
+      if(o.t === '💭') document.getElementById('fontSelect').value = o.f;
+    }
+
+    function ajustar() {
+      if(!seleccionado) return;
+      seleccionado.s = parseInt(document.getElementById('sizeRange').value);
+      if(seleccionado.t === '💭') seleccionado.f = document.getElementById('fontSelect').value;
+      dibujarTodo();
+    }
+
+    function actualizarBurbuja() {
+      const txt = document.getElementById('bubbleText').value;
+      let b = objetos.find(o => o.t === '💭');
+      if (b) { b.texto = txt; activarEditor(b); dibujarTodo(); } 
+      else if(txt) { addObj('💭'); objetos[objetos.length-1].texto = txt; }
+    }
+
+    function dibujarTodo() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      objetos.forEach(o => {
+        ctx.save();
+        if(o === seleccionado) { ctx.shadowBlur = 15; ctx.shadowColor = "#22d3ee"; }
+        ctx.font = `${o.s}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; 
+        ctx.fillText(o.t, o.x, o.y);
+        if(o.t === '💭' && o.texto) {
+          ctx.font = `bold ${o.s/4}px ${o.f || 'Arial'}`;
+          ctx.fillStyle = "black";
+          ctx.fillText(o.texto, o.x, o.y - (o.s/10), o.s * 0.8);
+        }
+        ctx.restore();
+      });
+    }
+
+    function getPos(e) { const r = canvas.getBoundingClientRect(); const cx = e.touches ? e.touches[0].clientX : e.clientX; const cy = e.touches ? e.touches[0].clientY : e.clientY; return { x: cx - r.left, y: cy - r.top }; }
+
+    canvas.onmousedown = canvas.ontouchstart = (e) => { 
+      const p = getPos(e); 
+      // Buscamos si tocaste un objeto (usando su tamaño actual para que sea preciso)
+      seleccionado = objetos.findLast(o => Math.abs(o.x - p.x) < o.s/2 && Math.abs(o.y - p.y) < o.s/2); 
+      if (seleccionado) { 
+        activarEditor(seleccionado);
+        offset.x = p.x - seleccionado.x; 
+        offset.y = p.y - seleccionado.y; 
+      } else {
+        document.getElementById('editZone').style.display = "none";
+      }
+      dibujarTodo();
+    };
+
+    window.onmousemove = window.ontouchmove = (e) => { 
+      if (seleccionado) { 
+        if(e.touches) e.preventDefault(); 
+        const p = getPos(e); 
+        seleccionado.x = p.x - offset.x; 
+        seleccionado.y = p.y - offset.y; 
+        dibujarTodo(); 
+      } 
+    };
+
+    window.onmouseup = window.ontouchend = () => { /* mantenemos seleccionado para poder usar la barra de tamaño */ };
+
+    function limpiar() { objetos = []; seleccionado = null; dibujarTodo(); document.getElementById('bubbleText').value = ""; document.getElementById('editZone').style.display = "none"; }
+
+    function guardar() {
+      const fC = document.createElement('canvas'); fC.width = 512; fC.height = 512; const fX = fC.getContext('2d');
+      fX.fillStyle = "white"; fX.fillRect(0,0,512,512); fX.drawImage(img, 0, 0, 512, 512);
+      const sc = 512 / canvas.width;
+      objetos.forEach(o => { 
+        fX.font = `${o.s * sc}px Arial`; fX.textAlign = "center"; fX.textBaseline = "middle"; fX.fillText(o.t, o.x * sc, o.y * sc); 
+        if(o.t === '💭' && o.texto) { fX.font = `bold ${(o.s/4) * sc}px ${o.f || 'Arial'}`; fX.fillStyle = "black"; fX.fillText(o.texto, o.x * sc, (o.y - (o.s/10)) * sc, (o.s * 0.8) * sc); } 
+      });
+      const l = document.createElement('a'); l.download = 'misti-sticker.png'; l.href = fC.toDataURL(); l.click();
+    }
+  </script>
+</body>
+</html>
+
+
+  </head>
+    
+  <body>
+  
+    
+  </body>
+  
+</html>
