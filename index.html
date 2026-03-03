@@ -4,186 +4,368 @@
   <head>
     <meta charset="UTF-8">
     <title>Untitled</title>
-    <!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Stickers Kawaiii</title>
-  <style>
-    :root { --accent: #f472b6; --bg: #0f172a; --panel: #1e293b; --cyan: #22d3ee; }
-    body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-    header { padding: 10px; text-align: center; background: rgba(0,0,0,0.1); border-bottom: 1px solid #334155; }
-    #historial { display: flex; gap: 8px; overflow-x: auto; padding: 10px; background: rgba(0,0,0,0.2); min-height: 60px; }
-    .hist-item { width: 50px; height: 50px; border-radius: 8px; border: 1px solid var(--cyan); object-fit: cover; flex-shrink: 0; }
-    main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 10px; position: relative; }
-    .canvas-box { position: relative; width: 100%; max-width: 320px; aspect-ratio: 1/1; background: white; border-radius: 20px; box-shadow: 0 0 25px var(--accent); touch-action: none; overflow: hidden; }
-    #mainCanvas { width: 100%; height: 100%; display: block; }
-    .controls { background: var(--panel); padding: 15px; border-top-left-radius: 30px; border-top-right-radius: 30px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; max-height: 50vh; }
-    input, select { background: var(--bg); border: 1px solid #334155; color: white; padding: 10px; border-radius: 12px; font-size: 14px; width: 100%; box-sizing: border-box; }
-    .btn-row { display: flex; gap: 5px; }
-    .btn-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
-    button { border: none; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; color: white; transition: 0.2s; }
-    .btn-gen { background: var(--accent); flex: 2; }
-    .btn-edit { background: #8b5cf6; flex: 2; }
-    .btn-gal { background: var(--cyan); color: #000; flex: 1; }
-    .btn-acc { background: rgba(255,255,255,0.1); font-size: 20px; }
-    .btn-save { background: #10b981; padding: 15px; font-size: 16px; width: 100%; }
-    #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-    #stickerResult { max-width: 90%; border: 4px solid white; border-radius: 20px; }
-    #loader { position: absolute; background: white; color: black; padding: 15px; border-radius: 15px; display: none; z-index: 100; font-weight: bold; }
-  </style>
-</head>
-<body>
-
-  <header><h3 style="margin:0">✨ STICKERS KAWAIII 🫶🏼</h3></header>
-  <div id="historial"></div>
-  <main>
-    <div id="loader">🎨 CREANDO MAGIA...</div>
-    <div class="canvas-box"><canvas id="mainCanvas"></canvas></div>
-  </main>
-
-  <div id="overlay">
-    <p style="text-align:center; color:var(--cyan)">MANTÉN PRESIONADO PARA GUARDAR</p>
-    <img id="stickerResult" src="">
-    <button onclick="document.getElementById('overlay').style.display='none'" style="margin-top:20px; background:white; color:black">VOLVER</button>
-  </div>
-
-  <section class="controls">
-    <div class="btn-row">
-      <input type="text" id="prompt" placeholder="¿Qué quieres crear hoy?">
-      <select id="styleMode" style="width:110px">
-        <option value="kawaii">Modo Kawaii</option>
-        <option value="anime">Modo Anime</option>
-        <option value="sticker">Modo Sticker</option>
-      </select>
-    </div>
-
-    <div class="btn-row">
-      <button class="btn-gen" onclick="crearIA(false)">🎨 CREAR</button>
-      <button class="btn-edit" onclick="crearIA(true)">✨ MEJORAR</button>
-      <button class="btn-gal" onclick="document.getElementById('fileInput').click()">🖼️</button>
-      <input type="file" id="fileInput" hidden accept="image/*" onchange="subirImagen(event)">
-    </div>
-
-    <div style="display:flex; align-items:center; gap:10px">
-      <span style="font-size:11px">TAMAÑO:</span>
-      <input type="range" id="sizeRange" min="30" max="450" value="150" oninput="ajustarTamaño()">
-    </div>
     
-    <input type="text" id="bubbleText" placeholder="Texto en burbuja..." oninput="actualizarBurbuja()">
-    
-    <div class="btn-grid">
-      <button class="btn-acc" onclick="addObj('💭')">💭</button>
-      <button class="btn-acc" onclick="addObj('👑')">👑</button>
-      <button class="btn-acc" onclick="addObj('🕶️')">🕶️</button>
-      <button class="btn-acc" onclick="addObj('🔥')">🔥</button>
-      <button class="btn-acc" onclick="addObj('❤️')">❤️</button>
-    </div>
-    
-    <button class="btn-save" onclick="prepararGuardado()">💾 LISTO PARA GUARDAR</button>
-  </section>
-
-  <script>
-    const canvas = document.getElementById('mainCanvas'), ctx = canvas.getContext('2d');
-    let baseImg = new Image(); baseImg.crossOrigin = "anonymous";
-    let objetos = [], seleccionado = null, offset = {x: 0, y: 0}, historial = [];
-    let descGaleria = ""; 
-    canvas.width = 512; canvas.height = 512;
-
-    async function crearIA(esMejora) {
-      const p = document.getElementById('prompt').value;
-      const estilo = document.getElementById('styleMode').value;
-      document.getElementById('loader').style.display = "block";
-      
-      let pFinal = p;
-      if (estilo === "kawaii") pFinal += ", kawaii style, cute characters, pastel colors";
-      if (estilo === "anime") pFinal += ", anime style, high quality, vibrant colors";
-      if (estilo === "sticker") pFinal += ", sticker style, white background, bold outline";
-
-      if (esMejora && descGaleria) {
-        pFinal = `A photo of ${descGaleria}, but now ${pFinal}`;
-      }
-
-      const seed = Math.floor(Math.random() * 999999);
-      baseImg.src = `https://image.pollinations.ai/prompt/${encodeURIComponent(pFinal)}?width=512&height=512&nologo=true&seed=${seed}`;
-      baseImg.onload = () => { document.getElementById('loader').style.display = "none"; dibujarTodo(); };
-    }
-
-    function subirImagen(e) {
-      const reader = new FileReader();
-      reader.onload = (event) => { 
-        baseImg.src = event.target.result; 
-        descGaleria = prompt("¿Qué hay en tu foto? (ej: un gato, una niña)");
-        baseImg.onload = () => dibujarTodo(); 
-      };
-      reader.readAsDataURL(e.target.files[0]);
-    }
-
-    function addObj(e) { 
-      const n = { t: e, x: 256, y: 256, s: parseInt(document.getElementById('sizeRange').value), texto: "" };
-      objetos.push(n); seleccionado = n; dibujarTodo(); 
-    }
-    
-    function ajustarTamaño() { if(seleccionado) { seleccionado.s = parseInt(document.getElementById('sizeRange').value); dibujarTodo(); } }
-    
-    function actualizarBurbuja() {
-      const t = document.getElementById('bubbleText').value;
-      let b = objetos.find(o => o.t === '💭');
-      if (b) b.texto = t; else if(t) addObj('💭');
-      dibujarTodo();
-    }
-
-    function dibujarTodo() {
-      ctx.fillStyle = "white"; ctx.fillRect(0, 0, 512, 512);
-      if(baseImg.src) ctx.drawImage(baseImg, 0, 0, 512, 512);
-      objetos.forEach(o => {
-        ctx.font = `${o.s}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText(o.t, o.x, o.y);
-        if(o.t === '💭' && o.texto) {
-          ctx.font = `bold ${o.s/4.5}px Arial`; ctx.fillStyle = "black";
-          ctx.fillText(o.texto, o.x, o.y - 5, o.s * 0.8);
-        }
-      });
-    }
-
-    function prepararGuardado() {
-      const d = canvas.toDataURL("image/png");
-      document.getElementById('stickerResult').src = d;
-      document.getElementById('overlay').style.display = 'flex';
-      if(!historial.includes(d)) {
-        historial.unshift(d); if(historial.length > 10) historial.pop();
-        const h = document.getElementById('historial'); h.innerHTML = "";
-        historial.forEach(img => {
-          const i = document.createElement('img'); i.src = img; i.className = "hist-item";
-          i.onclick = () => { baseImg.src = img; dibujarTodo(); }; h.appendChild(i);
-        });
-      }
-    }
-
-    canvas.ontouchstart = (e) => {
-      const r = canvas.getBoundingClientRect();
-      const x = (e.touches[0].clientX - r.left) * (512/r.width), y = (e.touches[0].clientY - r.top) * (512/r.height);
-      seleccionado = objetos.findLast(o => Math.abs(o.x - x) < 70 && Math.abs(o.y - y) < 70);
-      if(seleccionado) { offset.x = x - seleccionado.x; offset.y = y - seleccionado.y; }
-    };
-    canvas.ontouchmove = (e) => {
-      if(!seleccionado) return; e.preventDefault();
-      const r = canvas.getBoundingClientRect();
-      seleccionado.x = (e.touches[0].clientX - r.left) * (512/r.width) - offset.x;
-      seleccionado.y = (e.touches[0].clientY - r.top) * (512/r.height) - offset.y;
-      dibujarTodo();
-    };
-    dibujarTodo();
-  </script>
-</body>
-</html>
-
 
   </head>
     
   <body>
-  
+  <!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Magic Studio Kawaii - Premium</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+body{
+
+margin:0;
+
+font-family:'Poppins',sans-serif;
+
+background:radial-gradient(circle at top,#2a003f 0%,#0f0018 60%);
+
+display:flex;
+
+justify-content:center;
+
+align-items:center;
+
+min-height:100vh;
+
+color:white;
+
+}
+
+.phone-frame{
+
+width:340px;
+
+height:680px;
+
+background:#111;
+
+border-radius:45px;
+
+border:12px solid #000;
+
+box-shadow:0 30px 70px rgba(0,0,0,0.8);
+
+overflow:hidden;
+
+}
+
+.phone-screen{
+
+padding:40px 20px;
+
+overflow-y:auto;
+
+height:100%;
+
+background:linear-gradient(180deg,#1a001f,#120018);
+
+}
+
+.phone-screen::-webkit-scrollbar{display:none;}
+
+.header{text-align:center;}
+
+.header img{
+
+width:80px;
+
+border-radius:50%;
+
+border:3px solid #c77dff;
+
+box-shadow:0 0 25px rgba(199,125,255,0.7);
+
+}
+
+h1{
+
+font-size:1.4rem;
+
+margin:15px 0;
+
+color:#c77dff;
+
+text-shadow:0 0 15px rgba(199,125,255,0.7);
+
+}
+
+h2{
+
+font-size:1.05rem;
+
+margin-top:25px;
+
+color:#e0b3ff;
+
+}
+
+h3{
+
+font-size:0.95rem;
+
+margin-top:20px;
+
+color:#ffffff;
+
+}
+
+p{
+
+font-size:0.85rem;
+
+line-height:1.6;
+
+color:#dddddd;
+
+}
+
+.image-box{
+
+background:#1e1e1e;
+
+padding:15px;
+
+border-radius:18px;
+
+margin:20px 0;
+
+border:1px solid rgba(199,125,255,0.3);
+
+}
+
+.problem-img{
+
+width:100%;
+
+border-radius:12px;
+
+border:2px solid #ff4d6d;
+
+box-shadow:0 0 20px rgba(255,0,80,0.5);
+
+}
+
+.success-img{
+
+width:100%;
+
+border-radius:12px;
+
+border:2px solid #c77dff;
+
+box-shadow:0 0 35px rgba(199,125,255,0.8);
+
+margin-top:10px;
+
+}
+
+.solution-list{
+
+padding-left:18px;
+
+}
+
+.solution-list li{
+
+margin-bottom:12px;
+
+font-size:0.85rem;
+
+}
+
+.pricing-card{
+
+background:linear-gradient(90deg,#7b2cbf,#9d4edd);
+
+padding:20px;
+
+border-radius:20px;
+
+margin:25px 0;
+
+font-weight:bold;
+
+text-align:center;
+
+box-shadow:0 0 35px rgba(157,78,221,0.8);
+
+}
+
+.cta-button{
+
+display:flex;
+
+justify-content:center;
+
+align-items:center;
+
+background:linear-gradient(90deg,#7b2cbf,#9d4edd);
+
+color:white;
+
+padding:14px;
+
+border-radius:50px;
+
+text-decoration:none;
+
+font-weight:600;
+
+margin:15px 0;
+
+transition:0.3s;
+
+box-shadow:0 0 25px rgba(157,78,221,0.6);
+
+}
+
+.cta-button:hover{
+
+transform:scale(1.05);
+
+box-shadow:0 0 40px rgba(157,78,221,1);
+
+}
+
+.icon{
+
+width:22px;
+
+margin-right:10px;
+
+}
+
+footer{
+
+font-size:0.7rem;
+
+opacity:0.6;
+
+text-align:center;
+
+margin-top:25px;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="phone-frame">
+
+<div class="phone-screen">
+
+<div class="header">
+
+<img src="https://img.icons8.com/bubbles/100/magic-wand.png">
+
+<h1>MAGIC STUDIO KAWAII</h1>
+
+</div>
+
+<h2>¿Tu Bio-Link está trabajando para ti o en tu contra?</h2>
+
+<p>La biografía de tu Instagram es la puerta de entrada a tu negocio...</p>
+
+<h3>El Problema Silencioso</h3>
+
+<div class="image-box">
+
+<p>Cuando una imagen desaparece 😭</p>
+
+<img src="https://i.postimg.cc/9FmD8h8F/Image-Not-Found.png" class="problem-img">
+
+</div>
+
+<h2>Tu marca merece algo mejor ✨</h2>
+
+<div class="image-box">
+
+<p>Tu versión profesional:</p>
+
+<img src="https://i.postimg.cc/HxqSjQ37/Screenshot-20260303-145444-2.jpg" class="success-img">
+
+</div>
+
+<h3>¿Por qué invertir $25.000?</h3>
+
+<ul class="solution-list">
+
+<li>Estabilidad total sin errores 404.</li>
+
+<li>Diseño 100% personalizado.</li>
+
+<li>Sin publicidad externa.</li>
+
+<li>Optimización móvil.</li>
+
+<li>Mayor conversión.</li>
+
+</ul>
+
+<div class="pricing-card">
+
+Inversión Única: $25.000
+
+</div>
+
+<h3>Servicios Mágicos</h3>
+
+<ul class="solution-list">
+
+<li>✨ BIO-LINK HTML: $25.000</li>
+
+<li>🎨 LOGO GRÁFICO REAL: $15.000</li>
+
+<li>🍭 STICKERS DIGITALES: $10.000</li>
+
+</ul>
+
+<a href="https://wa.me/541160466781" class="cta-button" target="_blank">
+
+<img src="https://img.icons8.com/color/48/whatsapp.png" class="icon">
+
+💜 Quiero mi Bio-Link Premium
+
+</a>
+
+<a href="https://www.instagram.com/magic.studio.kawaii" class="cta-button" target="_blank">
+
+<img src="https://img.icons8.com/color/48/instagram-new.png" class="icon">
+
+Ver Diseños
+
+</a>
+
+<footer>
+
+Bio-Link HTML Personalizada y Diseñada por Magic Studio Kawaii ✨
+
+</footer>
+
+</div>
+
+</div>
+
+</body>
+
+</html>
     
   </body>
   
